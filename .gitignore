@@ -1,0 +1,22 @@
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+
+# Build artifacts
+*.zip
+node_modules/
+
+# Composer
+vendor/
+composer.lock
+
+# PHPCS
+.phpcs-cache
+
+# Dev tools (not distributed)
+languages/build.sh
+languages/compile_po.py

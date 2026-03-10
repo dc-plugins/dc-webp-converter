@@ -1,0 +1,315 @@
+# German translation for Dampcig PNG+JPG → WebP Converter
+# Copyright (C) 2026 Dampcig
+msgid ""
+msgstr ""
+"Project-Id-Version: Dampcig PNG+JPG → WebP Converter 1.2.0\n"
+"POT-Creation-Date: 2026-03-10T00:00:00+00:00\n"
+"PO-Revision-Date: 2026-03-10T00:00:00+00:00\n"
+"Last-Translator: Dampcig <info@dampcig.dk>\n"
+"Language-Team: German\n"
+"Language: de_DE\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"X-Generator: compile_po.py\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+
+msgid "Every Minute"
+msgstr "Jede Minute"
+
+msgid "Every 5 Minutes"
+msgstr "Alle 5 Minuten"
+
+msgid "Hourly"
+msgstr "Stündlich"
+
+msgid "Twice Daily"
+msgstr "Zweimal täglich"
+
+msgid "Settings saved."
+msgstr "Einstellungen gespeichert."
+
+msgid "Queue built: %d images queued."
+msgstr "Warteschlange erstellt: %d Bilder."
+
+msgid "Batch processed."
+msgstr "Stapel verarbeitet."
+
+msgid "Queue and progress reset."
+msgstr "Warteschlange zurückgesetzt."
+
+msgid "Server requirements re-checked."
+msgstr "Serveranforderungen erneut geprüft."
+
+msgid "PNG → WebP Converter"
+msgstr "PNG → WebP Konverter"
+
+msgid "PNG → WebP"
+msgstr "PNG → WebP"
+
+msgid "PNG + JPG → WebP Converter"
+msgstr "PNG + JPG → WebP Konverter"
+
+msgid "<strong>PNG → WebP Converter:</strong> Run the <a href=\"%s\">server requirements check</a> before starting conversion."
+msgstr "<strong>PNG → WebP Konverter:</strong> Führe die <a href=\"%s\">Serveranforderungsprüfung</a> durch, bevor du beginnst."
+
+msgid "<strong>PNG → WebP Converter:</strong> Your server does not meet all requirements. <a href=\"%s\">View details</a>."
+msgstr "<strong>PNG → WebP Konverter:</strong> Dein Server erfüllt nicht alle Anforderungen. <a href=\"%s\">Details anzeigen</a>."
+
+msgid "Server Requirements"
+msgstr "Serveranforderungen"
+
+msgid "✓ Server qualifies"
+msgstr "✓ Server erfüllt Anforderungen"
+
+msgid "✗ Server does not qualify"
+msgstr "✗ Server erfüllt Anforderungen nicht"
+
+msgid "⚠ Warnings"
+msgstr "⚠ Warnungen"
+
+msgid "Last checked: %s"
+msgstr "Zuletzt geprüft: %s"
+
+msgid "Requirement"
+msgstr "Anforderung"
+
+msgid "Detected Value"
+msgstr "Erkannter Wert"
+
+msgid "Status"
+msgstr "Status"
+
+msgid "Notes"
+msgstr "Hinweise"
+
+msgid "↺ Re-run Requirements Check"
+msgstr "↺ Anforderungsprüfung erneut ausführen"
+
+msgid "Settings"
+msgstr "Einstellungen"
+
+msgid "Batch Size"
+msgstr "Stapelgröße"
+
+msgid "Images converted per cron run (1–200)."
+msgstr "Bilder pro Cron-Lauf (1–200)."
+
+msgid "Cron Interval"
+msgstr "Cron-Intervall"
+
+msgid "Cron Enabled"
+msgstr "Cron aktiviert"
+
+msgid "Automatically convert via WP-Cron"
+msgstr "Automatisch über WP-Cron konvertieren"
+
+msgid "WebP Quality"
+msgstr "WebP-Qualität"
+
+msgid "Lossy quality for photos (50–100). Default 82. Images with ≤512 unique colours (logos, icons) are always encoded lossless regardless of this setting."
+msgstr "Verlustbehaftete Qualität für Fotos (50–100). Standard 82. Bilder mit ≤512 Farben (Logos, Icons) werden immer verlustfrei kodiert."
+
+msgid "Footer Credit"
+msgstr "Footer-Kredithinweis"
+
+msgid "Vis kærlighed og støt udviklingen ved at tilføje et lille link i footeren"
+msgstr "Zeig deine Unterstützung: kleinen Link im Footer hinzufügen"
+
+msgid "Save Settings"
+msgstr "Einstellungen speichern"
+
+msgid "Progress"
+msgstr "Fortschritt"
+
+msgid "No queue built yet. Click Scan &amp; Build Queue to find all product PNG + JPG images."
+msgstr "Noch keine Warteschlange. Klicke auf Scan &amp; Warteschlange erstellen."
+
+msgid "Total in queue"
+msgstr "Gesamt in Warteschlange"
+
+msgid "Converted"
+msgstr "Konvertiert"
+
+msgid "Errors"
+msgstr "Fehler"
+
+msgid "Remaining"
+msgstr "Verbleibend"
+
+msgid "Next cron run"
+msgstr "Nächster Cron-Lauf"
+
+msgid "from now"
+msgstr "ab jetzt"
+
+msgid "Not scheduled"
+msgstr "Nicht geplant"
+
+msgid "%1$d / %2$d converted"
+msgstr "%1$d / %2$d konvertiert"
+
+msgid "errors"
+msgstr "Fehler"
+
+msgid "✓ All images converted!"
+msgstr "✓ Alle Bilder konvertiert!"
+
+msgid "⟳ Processing… page refreshes every 10 s"
+msgstr "⟳ Verarbeitung… Seite wird alle 10 s aktualisiert"
+
+msgid "This will re-scan all products and reset progress. Proceed?"
+msgstr "Alle Produkte werden erneut gescannt und der Fortschritt zurückgesetzt. Fortfahren?"
+
+msgid "Scan &amp; Build Queue (PNG + JPG)"
+msgstr "Scan &amp; Warteschlange erstellen (PNG + JPG)"
+
+msgid "▶ Run Batch Now"
+msgstr "▶ Stapel jetzt ausführen"
+
+msgid "Reset all progress?"
+msgstr "Gesamten Fortschritt zurücksetzen?"
+
+msgid "Reset"
+msgstr "Zurücksetzen"
+
+msgid "Last Processed"
+msgstr "Zuletzt verarbeitet"
+
+msgid "%1$s entries — page %2$d of %3$d"
+msgstr "%1$s Einträge — Seite %2$d von %3$d"
+
+msgid "« Newer"
+msgstr "« Neuer"
+
+msgid "Older »"
+msgstr "Älter »"
+
+msgid "ID"
+msgstr "ID"
+
+msgid "File / Message"
+msgstr "Datei / Meldung"
+
+msgid "PHP Version"
+msgstr "PHP-Version"
+
+msgid "PHP 7.4+ required."
+msgstr "PHP 7.4+ erforderlich."
+
+msgid "PHP 7.4 or higher is required."
+msgstr "PHP 7.4 oder höher ist erforderlich."
+
+msgid "Imagick Extension"
+msgstr "Imagick-Erweiterung"
+
+msgid "Loaded"
+msgstr "Geladen"
+
+msgid "Not available"
+msgstr "Nicht verfügbar"
+
+msgid "Required for image conversion."
+msgstr "Für die Bildkonvertierung erforderlich."
+
+msgid "Imagick must be enabled in PHP."
+msgstr "Imagick muss in PHP aktiviert sein."
+
+msgid "Imagick WebP Support"
+msgstr "Imagick WebP-Unterstützung"
+
+msgid "Supported"
+msgstr "Unterstützt"
+
+msgid "Not supported"
+msgstr "Nicht unterstützt"
+
+msgid "Imagick can encode WebP files."
+msgstr "Imagick kann WebP-Dateien kodieren."
+
+msgid "Your ImageMagick build lacks WebP codec (install libwebp and recompile, or ask your host)."
+msgstr "Ihr ImageMagick-Build hat keinen WebP-Codec (libwebp installieren und neu kompilieren)."
+
+msgid "GD WebP Support"
+msgstr "GD WebP-Unterstützung"
+
+msgid "Available"
+msgstr "Verfügbar"
+
+msgid "Plugin uses Imagick; GD is informational only."
+msgstr "Plugin verwendet Imagick; GD ist nur informativ."
+
+msgid "WooCommerce"
+msgstr "WooCommerce"
+
+msgid "Active"
+msgstr "Aktiv"
+
+msgid "Product image scanning requires WooCommerce."
+msgstr "Für das Scannen von Produktbildern ist WooCommerce erforderlich."
+
+msgid "WooCommerce must be installed and active."
+msgstr "WooCommerce muss installiert und aktiv sein."
+
+msgid "WP-Cron"
+msgstr "WP-Cron"
+
+msgid "Disabled (DISABLE_WP_CRON)"
+msgstr "Deaktiviert (DISABLE_WP_CRON)"
+
+msgid "Enabled"
+msgstr "Aktiviert"
+
+msgid "Automatic batch processing will not run. Use “Run Batch Now” manually, or set up a real server cron job targeting wp-cron.php."
+msgstr "Automatische Stapelverarbeitung läuft nicht. Verwende “Stapel jetzt ausführen” manuell oder richte einen Cron-Job für wp-cron.php ein."
+
+msgid "Automatic batch processing will run on visitor traffic."
+msgstr "Automatische Stapelverarbeitung läuft bei Besucherverkehr."
+
+msgid "PHP Memory Limit"
+msgstr "PHP-Speicherlimit"
+
+msgid "Sufficient for processing large images."
+msgstr "Ausreichend für die Verarbeitung großer Bilder."
+
+msgid "Less than 128 MB may cause out-of-memory errors on large images. Reduce batch size if problems occur."
+msgstr "Weniger als 128 MB kann zu Speicherfehlern führen. Stapelgröße bei Problemen reduzieren."
+
+msgid "Max Execution Time"
+msgstr "Maximale Ausführungszeit"
+
+msgid "Unlimited"
+msgstr "Unbegrenzt"
+
+msgid "Enough time to process a batch."
+msgstr "Genug Zeit, um einen Stapel zu verarbeiten."
+
+msgid "Under 30 s may cause batch timeouts. Reduce batch size or ask your host to increase the limit."
+msgstr "Unter 30 s können Stapel-Timeouts verursacht werden. Stapelgröße reduzieren."
+
+msgid "Object Cache (Redis/Memcached)"
+msgstr "Objekt-Cache (Redis/Memcached)"
+
+msgid "Footer strategy cache will use in-memory store (0 DB queries)."
+msgstr "Footer-Cache verwendet In-Memory-Speicher (0 DB-Abfragen)."
+
+msgid "Optional but recommended. Plugin will fall back to transient (1 cheap DB read per uncached page)."
+msgstr "Optional, aber empfohlen. Plugin fällt auf Transient zurück (1 günstige DB-Abfrage)."
+
+msgid "Uploads Directory Writable"
+msgstr "Uploads-Verzeichnis beschreibbar"
+
+msgid "Not writable"
+msgstr "Nicht beschreibbar"
+
+msgid "WebP files can be written."
+msgstr "WebP-Dateien können geschrieben werden."
+
+msgid "The uploads folder is not writable. Fix directory permissions."
+msgstr "Der Uploads-Ordner ist nicht beschreibbar. Berechtigungen korrigieren."
+
+msgid "Not active"
+msgstr "Nicht aktiv"
+
+msgid "Powered by Dampcig.dk"
+msgstr "Bereitgestellt von Dampcig.dk"

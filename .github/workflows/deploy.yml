@@ -1,0 +1,44 @@
+name: Deploy to Production
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  deploy:
+    name: SSH Deploy → dampcig.dk
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Deploy via rsync
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          rsync -az --delete \
+            -e "ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no" \
+            --exclude='.git' \
+            --exclude='.github' \
+            --exclude='.gitignore' \
+            --exclude='phpcs.xml' \
+            --exclude='languages/build.sh' \
+            --exclude='languages/compile_po.py' \
+            ./ ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:${{ secrets.DEPLOY_PATH }}dc-webp-converter/
+
+      - name: Build wordpress.org ZIP
+        run: |
+          mkdir -p dist
+          zip -r dist/dc-webp-converter.zip . \
+            -x '*.git*' -x '.github/*' -x '.gitignore' \
+            -x 'phpcs.xml' -x 'dist/*' \
+            -x 'languages/build.sh' -x 'languages/compile_po.py'
+
+      - name: Upload ZIP artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: dc-webp-converter-${{ github.sha }}
+          path: dist/dc-webp-converter.zip
+          retention-days: 30
