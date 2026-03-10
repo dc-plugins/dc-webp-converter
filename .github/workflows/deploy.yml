@@ -19,14 +19,14 @@ jobs:
           echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/deploy_key
           chmod 600 ~/.ssh/deploy_key
           rsync -az --delete \
-            -e "ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no" \
+            -e "ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no -p 22" \
             --exclude='.git' \
             --exclude='.github' \
             --exclude='.gitignore' \
             --exclude='phpcs.xml' \
             --exclude='languages/build.sh' \
             --exclude='languages/compile_po.py' \
-            ./ ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:${{ secrets.DEPLOY_PATH }}dc-webp-converter/
+            ./ ${{ vars.SSH_USER }}@${{ vars.SSH_HOST }}:${{ vars.DEPLOY_PATH }}dc-webp-converter/
 
       - name: Build wordpress.org ZIP
         run: |
