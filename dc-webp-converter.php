@@ -378,7 +378,7 @@ class DC_WebP_Converter {
 			'cron_schedule'         => 'dc_every_minute',
 			'cron_enabled'          => 1,
 			'quality'               => 82,
-			'footer_credit_enabled' => 1,
+			'footer_credit_enabled' => 0,
 		] );
 	}
 
