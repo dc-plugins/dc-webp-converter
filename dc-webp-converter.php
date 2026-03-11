@@ -55,6 +55,19 @@ class DC_WebP_Converter {
 
 		register_activation_hook( __FILE__,   [ __CLASS__, 'activate' ] );
 		register_deactivation_hook( __FILE__, [ __CLASS__, 'deactivate' ] );
+
+		// Admin footer — only on this plugin's own page.
+		add_filter( 'admin_footer_text', static function( $text ) {
+			$screen = get_current_screen();
+			if ( $screen && $screen->id === 'toplevel_page_dc-webp-converter' ) {
+				return sprintf(
+					/* translators: %s: URL to DC Plugins GitHub organisation */
+					__( 'More plugins by <a href="%s" target="_blank" rel="noopener">DC Plugins</a>', 'dc-webp-converter' ),
+					'https://github.com/dc-plugins'
+				);
+			}
+			return $text;
+		} );
 	}
 
 	// -------------------------------------------------------------------------
