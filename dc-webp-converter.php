@@ -2,7 +2,7 @@
 /**
  * @wordpress-plugin
  * Plugin Name: DC WebP Converter
- * Plugin URI:  https://www.dampcig.dk
+ * Plugin URI:  https://github.com/dc-plugins/dc-webp-converter
  * Description: Converts product-attached PNG and JPG images to WebP in batches via WP-Cron. Saves bandwidth, improves Core Web Vitals.
  * Version:     1.2.0
  * Author:      Dampcig
