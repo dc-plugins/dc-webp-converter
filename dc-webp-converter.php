@@ -589,8 +589,20 @@ class DC_WebP_Converter {
 			$meta = wp_get_attachment_metadata( $id ) ?: [];
 			$size = @getimagesize( $webp_path );
 			if ( $size ) { $meta['width'] = $size[0]; $meta['height'] = $size[1]; }
-			$meta['file']  = $webp_rel;
-			$meta['sizes'] = [];
+			$meta['file'] = $webp_rel;
+			// Update file references in registered sizes from .png/.jpg → .webp.
+			// Preserves width/height per-size so WordPress can emit correct
+			// width/height HTML attributes — critical for CLS prevention.
+			// We do NOT wipe sizes: if entries already have correct dims (same
+			// pixel dimensions as the original), they remain valid after conversion.
+			if ( ! empty( $meta['sizes'] ) && is_array( $meta['sizes'] ) ) {
+				foreach ( $meta['sizes'] as $size_name => $size_data ) {
+					if ( isset( $size_data['file'] ) ) {
+						$meta['sizes'][ $size_name ]['file']      = preg_replace( '/\.(png|jpe?g)$/i', '.webp', $size_data['file'] );
+						$meta['sizes'][ $size_name ]['mime-type'] = 'image/webp';
+					}
+				}
+			}
 			wp_update_attachment_metadata( $id, $meta );
 
 			global $wpdb;
