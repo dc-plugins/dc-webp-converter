@@ -52,11 +52,10 @@ class DC_WebP_Converter {
 		// has already claimed ownership via the dc_footer_credit_owner() sentinel.
 		$dc_p2w_s = self::get_settings();
 		if ( ! empty( $dc_p2w_s['footer_credit_enabled'] )
-			&& ! is_admin() && ! wp_doing_cron() && ! ( defined( 'REST_REQUEST' ) && REST_REQUEST )
 			&& ! function_exists( 'dc_footer_credit_owner' )
 		) {
 			function dc_footer_credit_owner(): void {} // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedFunctionFound -- intentional cross-plugin sentinel
-			add_action( 'template_redirect', [ __CLASS__, 'footer_credit_buffer_start' ] );
+			add_action( 'wp_footer', [ __CLASS__, 'footer_credit_js' ], PHP_INT_MAX );
 		}
 		unset( $dc_p2w_s );
 
@@ -266,85 +265,47 @@ class DC_WebP_Converter {
 	}
 
 	// -------------------------------------------------------------------------
-	// Footer credit – zero-JS, server-side output buffer
+	// Footer credit
 	// -------------------------------------------------------------------------
 
 	/**
-	 * Starts output buffering on the front-end. The buffer callback does a
-	 * pure-PHP replacement of the first © symbol found inside <footer> with a
-	 * linked version pointing to dampcig.dk.
-	 *
-	 * Strategy detection is persisted in a transient (+ object cache) so the
-	 * site only pays the cost of a full-HTML scan on the very first page load
-	 * after activation or reset. All subsequent requests hit the object cache
-	 * (0 DB queries when Redis/Memcached is available) or a single cheap
-	 * transient read, then execute one targeted string operation.
+	 * Output a tiny inline TreeWalker script that wraps the first © text node
+	 * inside <footer> with a link to dampcig.dk.
 	 */
-	public static function footer_credit_buffer_start() {
-		ob_start( [ __CLASS__, 'footer_credit_process' ] );
-	}
-
-	public static function footer_credit_process( $html ) {
+	public static function footer_credit_js() {
+		if ( is_admin() ) {
+			return;
+		}
 		$url   = 'https://www.dampcig.dk';
-		$title = 'Powered by Dampcig.dk';
-		$link  = '<a href="' . $url . '" title="' . $title . '" target="_blank" rel="noopener noreferrer">&copy;</a>';
-
-		// Check object cache first (in-memory, zero DB cost), then transient.
-		$strategy = wp_cache_get( self::TRANSIENT_FOOTER, 'dc_p2w' );
-		if ( false === $strategy ) {
-			$strategy = get_transient( self::TRANSIENT_FOOTER );
-		}
-
-		// Cached: © exists in footer — replace it.
-		if ( 'copyright' === $strategy ) {
-			return self::do_copyright_replace( $html, $link );
-		}
-
-		// Cached: no © found on a previous run — do nothing.
-		if ( 'none' === $strategy ) {
-			return $html;
-		}
-
-		// First run: detect and cache.
-		$replaced = self::do_copyright_replace( $html, $link );
-		if ( $replaced !== $html ) {
-			self::cache_footer_strategy( 'copyright' );
-			return $replaced;
-		}
-
-		// No © found — cache that fact and leave HTML untouched.
-		self::cache_footer_strategy( 'none' );
-		return $html;
+		$title = esc_js( 'Powered by Dampcig.dk' );
+		?>
+<script>(function(){
+var f=document.querySelector('footer');
+if(!f)return;
+var w=document.createTreeWalker(f,NodeFilter.SHOW_TEXT,null,false);
+var node;
+while((node=w.nextNode())){
+	if(node.nodeValue.indexOf('\u00A9')===-1)continue;
+	var idx=node.nodeValue.indexOf('\u00A9');
+	var frag=document.createDocumentFragment();
+	if(idx>0)frag.appendChild(document.createTextNode(node.nodeValue.slice(0,idx)));
+	var a=document.createElement('a');
+	a.href=<?php echo wp_json_encode( $url ); ?>;
+	a.title=<?php echo wp_json_encode( $title ); ?>;
+	a.target='_blank';
+	a.rel='noopener noreferrer';
+	a.textContent='\u00A9';
+	frag.appendChild(a);
+	var rest=node.nodeValue.slice(idx+1);
+	if(rest)frag.appendChild(document.createTextNode(rest));
+	node.parentNode.replaceChild(frag,node);
+	break;
+}
+})();</script>
+		<?php
 	}
 
-	/**
-	 * Replaces the first © ( UTF-8 char, &copy; entity, or &#169; / &#xA9; )
-	 * found inside the <footer> block.
-	 * Returns $html unchanged if no © or no <footer> is found.
-	 */
-	private static function do_copyright_replace( $html, $link ) {
-		if ( ! preg_match( '/(<footer[\s\S]*?<\/footer>)/i', $html, $m, PREG_OFFSET_CAPTURE ) ) {
-			return $html; // No <footer> tag — leave page untouched.
-		}
-
-		$footer_html = $m[0][0];
-		$offset      = $m[0][1];
-		$new_footer  = preg_replace( '/©|&copy;|&#169;|&#xA9;/u', $link, $footer_html, 1, $count );
-
-		if ( ! $count ) {
-			return $html; // No © in footer — leave page untouched.
-		}
-
-		return substr_replace( $html, $new_footer, $offset, strlen( $footer_html ) );
-	}
-
-	/** Persist the detected strategy in both object cache and transient. */
-	private static function cache_footer_strategy( $strategy ) {
-		wp_cache_set( self::TRANSIENT_FOOTER, $strategy, 'dc_p2w', WEEK_IN_SECONDS );
-		set_transient( self::TRANSIENT_FOOTER, $strategy, WEEK_IN_SECONDS );
-	}
-
-	/** Invalidate the cached footer strategy (call on theme switch / reset). */
+	/** Clean up legacy footer strategy transient left by older versions. */
 	public static function clear_footer_strategy_cache() {
 		wp_cache_delete( self::TRANSIENT_FOOTER, 'dc_p2w' );
 		delete_transient( self::TRANSIENT_FOOTER );
