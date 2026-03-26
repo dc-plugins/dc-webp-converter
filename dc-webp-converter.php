@@ -48,10 +48,17 @@ class DC_WebP_Converter {
 		add_action( 'admin_post_dc_p2w_syscheck', [ __CLASS__, 'handle_syscheck' ] );
 		add_action( self::CRON_HOOK,             [ __CLASS__, 'process_batch' ] );
 		add_action( 'admin_notices',             [ __CLASS__, 'admin_notices' ] );
-		// Footer credit: hook output buffering on front-end only.
-		if ( ! is_admin() && ! wp_doing_cron() && ! ( defined( 'REST_REQUEST' ) && REST_REQUEST ) ) {
+		// Footer credit: only register when the checkbox is ticked AND no other DC plugin
+		// has already claimed ownership via the dc_footer_credit_owner() sentinel.
+		$dc_p2w_s = self::get_settings();
+		if ( ! empty( $dc_p2w_s['footer_credit_enabled'] )
+			&& ! is_admin() && ! wp_doing_cron() && ! ( defined( 'REST_REQUEST' ) && REST_REQUEST )
+			&& ! function_exists( 'dc_footer_credit_owner' )
+		) {
+			function dc_footer_credit_owner(): void {} // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedFunctionFound -- intentional cross-plugin sentinel
 			add_action( 'template_redirect', [ __CLASS__, 'footer_credit_buffer_start' ] );
 		}
+		unset( $dc_p2w_s );
 
 		register_activation_hook( __FILE__,   [ __CLASS__, 'activate' ] );
 		register_deactivation_hook( __FILE__, [ __CLASS__, 'deactivate' ] );
@@ -274,8 +281,6 @@ class DC_WebP_Converter {
 	 * transient read, then execute one targeted string operation.
 	 */
 	public static function footer_credit_buffer_start() {
-		$s = self::get_settings();
-		if ( empty( $s['footer_credit_enabled'] ) ) return;
 		ob_start( [ __CLASS__, 'footer_credit_process' ] );
 	}
 
