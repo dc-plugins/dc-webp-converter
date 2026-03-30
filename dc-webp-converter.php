@@ -4,7 +4,7 @@
  * Plugin Name: DC WebP Converter
  * Plugin URI:  https://github.com/dc-plugins/dc-webp-converter
  * Description: Converts product-attached PNG and JPG images to WebP in batches via WP-Cron. Saves bandwidth, improves Core Web Vitals.
- * Version:     1.2.0
+ * Version:     1.3.0
  * Author:      Dampcig
  * Author URI:  https://www.dampcig.dk
  * License:     GPL-2.0+
@@ -28,8 +28,10 @@ class DC_WebP_Converter {
 	const OPT_DONE     = 'dc_p2w_done';      // int – successfully converted
 	const OPT_ERRORS   = 'dc_p2w_errors';    // int – failed
 	const OPT_LOG      = 'dc_p2w_log';       // array of last-run log entries
-	const OPT_RUNNING  = 'dc_p2w_running';   // bool – cron lock
-	const CRON_HOOK    = 'dc_p2w_cron';
+	const OPT_RUNNING      = 'dc_p2w_running';       // bool – cron lock
+	const OPT_REPAIR_LOG   = 'dc_p2w_repair_log';   // array – last repair run entries
+	const OPT_REPAIR_STATS = 'dc_p2w_repair_stats'; // array – { fixed, skipped, errors, ts }
+	const CRON_HOOK        = 'dc_p2w_cron';
 
 	// -------------------------------------------------------------------------
 	// Bootstrap
@@ -46,6 +48,7 @@ class DC_WebP_Converter {
 		add_action( 'admin_post_dc_p2w_runnow',  [ __CLASS__, 'run_now' ] );
 		add_action( 'admin_post_dc_p2w_reset',   [ __CLASS__, 'reset_all' ] );
 		add_action( 'admin_post_dc_p2w_syscheck', [ __CLASS__, 'handle_syscheck' ] );
+		add_action( 'admin_post_dc_p2w_repair',   [ __CLASS__, 'handle_repair' ] );
 		add_action( self::CRON_HOOK,             [ __CLASS__, 'process_batch' ] );
 		add_action( 'admin_notices',             [ __CLASS__, 'admin_notices' ] );
 		// Footer credit: only register when the checkbox is ticked AND no other DC plugin
@@ -481,6 +484,163 @@ while((node=w.nextNode())){
 	}
 
 	// -------------------------------------------------------------------------
+	// Repair: find WebP attachments with missing thumbnail files on disk
+	// -------------------------------------------------------------------------
+
+	/**
+	 * Returns an array of attachment IDs whose metadata says .webp for one or
+	 * more thumbnail sizes but the actual .webp file is missing from disk.
+	 * Only considers attachments that have already been converted to WebP
+	 * (post_mime_type = image/webp).
+	 */
+	public static function get_repair_candidates() {
+		global $wpdb;
+
+		// All WebP attachments that belong to products (by post_parent or thumbnail meta)
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$ids = $wpdb->get_col(
+			"SELECT DISTINCT a.ID
+			FROM {$wpdb->posts} a
+			WHERE a.post_type      = 'attachment'
+			  AND a.post_mime_type = 'image/webp'
+			  AND a.post_status    = 'inherit'"
+		);
+
+		$upload_dir = wp_upload_dir();
+		$base       = trailingslashit( $upload_dir['basedir'] );
+		$candidates = [];
+
+		foreach ( $ids as $id ) {
+			$meta = wp_get_attachment_metadata( (int) $id );
+			if ( empty( $meta['sizes'] ) || empty( $meta['file'] ) ) {
+				continue;
+			}
+			$size_dir = trailingslashit( $base . dirname( $meta['file'] ) );
+			foreach ( $meta['sizes'] as $size_data ) {
+				if ( empty( $size_data['file'] ) ) {
+					continue;
+				}
+				$webp_path = $size_dir . $size_data['file'];
+				if ( ! file_exists( $webp_path ) ) {
+					$candidates[] = (int) $id;
+					break; // one missing size is enough to flag this attachment
+				}
+			}
+		}
+
+		return array_values( array_unique( $candidates ) );
+	}
+
+	/**
+	 * Convert missing thumbnail WebP files for the given attachment IDs.
+	 * Returns [ 'fixed' => int, 'skipped' => int, 'errors' => int, 'log' => array ].
+	 */
+	public static function repair_thumbnails( array $ids ) {
+		$s          = self::get_settings();
+		$upload_dir = wp_upload_dir();
+		$base       = trailingslashit( $upload_dir['basedir'] );
+		$fixed      = 0;
+		$skipped    = 0;
+		$errors     = 0;
+		$log        = [];
+
+		foreach ( $ids as $id ) {
+			$meta = wp_get_attachment_metadata( $id );
+			if ( empty( $meta['sizes'] ) || empty( $meta['file'] ) ) {
+				$log[] = [ 'id' => $id, 'status' => 'skip', 'msg' => 'No sizes in metadata' ];
+				$skipped++;
+				continue;
+			}
+
+			$size_dir        = trailingslashit( $base . dirname( $meta['file'] ) );
+			$any_converted   = false;
+			$meta_updated    = false;
+
+			foreach ( $meta['sizes'] as $size_name => $size_data ) {
+				if ( empty( $size_data['file'] ) ) {
+					continue;
+				}
+
+				$webp_file = $size_dir . $size_data['file'];
+
+				// Already on disk — nothing to do for this size.
+				if ( file_exists( $webp_file ) ) {
+					continue;
+				}
+
+				// Locate the original source (PNG or JPG alongside the WebP path).
+				$base_path = preg_replace( '/\.webp$/i', '', $webp_file );
+				$src       = null;
+				foreach ( [ '.png', '.PNG', '.jpg', '.JPG', '.jpeg', '.JPEG' ] as $ext ) {
+					if ( file_exists( $base_path . $ext ) ) {
+						$src = $base_path . $ext;
+						break;
+					}
+				}
+
+				if ( ! $src ) {
+					$log[]  = [ 'id' => $id, 'status' => 'warn', 'msg' => '[' . $size_name . '] Source not found: ' . basename( $webp_file ) ];
+					$errors++;
+					continue;
+				}
+
+				try {
+					if ( ! class_exists( 'Imagick' ) ) {
+						throw new RuntimeException( 'Imagick not available' );
+					}
+					$img = new Imagick( $src );
+					$img->setImageFormat( 'webp' );
+					if ( $img->getImageColors() <= 512 ) {
+						$img->setOption( 'webp:lossless', 'true' );
+					} else {
+						$img->setImageCompressionQuality( (int) $s['quality'] );
+						$img->setOption( 'webp:method', '6' );
+					}
+					$img->writeImage( $webp_file );
+					$img->destroy();
+					$log[]         = [ 'id' => $id, 'status' => 'ok', 'msg' => '[' . $size_name . '] ' . basename( $webp_file ) ];
+					$any_converted = true;
+					$fixed++;
+				} catch ( Exception $e ) {
+					$log[]  = [ 'id' => $id, 'status' => 'error', 'msg' => '[' . $size_name . '] ' . $e->getMessage() ];
+					$errors++;
+				}
+			}
+
+			if ( ! $any_converted ) {
+				$skipped++;
+			}
+		}
+
+		return compact( 'fixed', 'skipped', 'errors', 'log' );
+	}
+
+	/** POST handler – scan all WebP attachments and repair missing thumbnails immediately. */
+	public static function handle_repair() {
+		check_admin_referer( 'dc_p2w_repair' );
+		if ( ! current_user_can( 'manage_options' ) ) {
+			wp_die( 'Unauthorized' );
+		}
+
+		$ids    = self::get_repair_candidates();
+		$result = self::repair_thumbnails( $ids );
+
+		update_option( self::OPT_REPAIR_LOG, $result['log'] );
+		update_option( self::OPT_REPAIR_STATS, [
+			'fixed'   => $result['fixed'],
+			'skipped' => $result['skipped'],
+			'errors'  => $result['errors'],
+			'ts'      => current_time( 'mysql' ),
+		] );
+
+		wp_safe_redirect( add_query_arg(
+			[ 'page' => 'dc-png-to-webp', 'msg' => 'repaired', 'r_fixed' => $result['fixed'], 'r_errors' => $result['errors'] ],
+			admin_url( 'tools.php' )
+		) );
+		exit;
+	}
+
+	// -------------------------------------------------------------------------
 	// Batch processor
 	// -------------------------------------------------------------------------
 
@@ -556,17 +716,41 @@ while((node=w.nextNode())){
 			$size = @getimagesize( $webp_path );
 			if ( $size ) { $meta['width'] = $size[0]; $meta['height'] = $size[1]; }
 			$meta['file'] = $webp_rel;
-			// Update file references in registered sizes from .png/.jpg → .webp.
+			// Convert each thumbnail size on disk, then update its metadata reference.
 			// Preserves width/height per-size so WordPress can emit correct
 			// width/height HTML attributes — critical for CLS prevention.
-			// We do NOT wipe sizes: if entries already have correct dims (same
-			// pixel dimensions as the original), they remain valid after conversion.
 			if ( ! empty( $meta['sizes'] ) && is_array( $meta['sizes'] ) ) {
+				$size_dir = trailingslashit( $base . dirname( $rel_path ) );
 				foreach ( $meta['sizes'] as $size_name => $size_data ) {
-					if ( isset( $size_data['file'] ) ) {
-						$meta['sizes'][ $size_name ]['file']      = preg_replace( '/\.(png|jpe?g)$/i', '.webp', $size_data['file'] );
-						$meta['sizes'][ $size_name ]['mime-type'] = 'image/webp';
+					if ( empty( $size_data['file'] ) ) {
+						continue;
 					}
+					$thumb_src  = $size_dir . $size_data['file'];
+					$thumb_webp = preg_replace( '/\.(png|jpe?g)$/i', '.webp', $thumb_src );
+					// Convert the thumbnail file if the source exists and WebP not yet made.
+					if ( file_exists( $thumb_src ) && ! file_exists( $thumb_webp ) ) {
+						try {
+							if ( ! class_exists( 'Imagick' ) ) {
+								throw new RuntimeException( 'Imagick not available' );
+							}
+							$timg = new Imagick( $thumb_src );
+							$timg->setImageFormat( 'webp' );
+							if ( $timg->getImageColors() <= 512 ) {
+								$timg->setOption( 'webp:lossless', 'true' );
+							} else {
+								$timg->setImageCompressionQuality( (int) $s['quality'] );
+								$timg->setOption( 'webp:method', '6' );
+							}
+							$timg->writeImage( $thumb_webp );
+							$timg->destroy();
+						} catch ( Exception $e ) {
+							// Non-fatal: log but keep processing other sizes.
+							$log_entries[] = [ 'id' => $id, 'status' => 'warn', 'msg' => 'Thumbnail convert failed (' . $size_name . '): ' . $e->getMessage() ];
+						}
+					}
+					// Update metadata reference regardless (file may have been converted on a previous run).
+					$meta['sizes'][ $size_name ]['file']      = preg_replace( '/\.(png|jpe?g)$/i', '.webp', $size_data['file'] );
+					$meta['sizes'][ $size_name ]['mime-type'] = 'image/webp';
 				}
 			}
 			wp_update_attachment_metadata( $id, $meta );
@@ -712,6 +896,13 @@ while((node=w.nextNode())){
 		<?php if ( $msg === 'ran'      ) : ?><div class="notice notice-success is-dismissible"><p><?php esc_html_e( 'Batch processed.', 'dc-webp-converter' ); ?></p></div><?php endif; ?>
 		<?php if ( $msg === 'reset'    ) : ?><div class="notice notice-warning is-dismissible"><p><?php esc_html_e( 'Queue and progress reset.', 'dc-webp-converter' ); ?></p></div><?php endif; ?>
 		<?php if ( $msg === 'syscheck' ) : ?><div class="notice notice-success is-dismissible"><p><?php esc_html_e( 'Server requirements re-checked.', 'dc-webp-converter' ); ?></p></div><?php endif; ?>
+		<?php if ( $msg === 'repaired' ) :
+			$r_fixed  = absint( isset( $_GET['r_fixed'] )  ? wp_unslash( $_GET['r_fixed'] )  : 0 ); // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+			$r_errors = absint( isset( $_GET['r_errors'] ) ? wp_unslash( $_GET['r_errors'] ) : 0 ); // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+		?><div class="notice notice-success is-dismissible"><p><?php
+			/* translators: %1$d: thumbnails fixed, %2$d: errors */
+			printf( esc_html__( 'Repair complete: %1$d thumbnail(s) generated, %2$d error(s).', 'dc-webp-converter' ), $r_fixed, $r_errors );
+		?></p></div><?php endif; ?>
 
 		<?php
 		// ── Server Requirements Panel ──────────────────────────────────────
@@ -898,6 +1089,73 @@ while((node=w.nextNode())){
 
 		</div><!-- /actions -->
 		</div><!-- /progress -->
+
+		<!-- ── Repair Missing Thumbnails ───────────────────────────────── -->
+		<?php
+		$repair_stats = get_option( self::OPT_REPAIR_STATS );
+		$repair_log   = get_option( self::OPT_REPAIR_LOG, [] );
+		// Quick count of currently missing thumbnails (lightweight — skips file_exists calls
+		// on large libraries; runs only on page load, results are not cached).
+		$missing_count = count( self::get_repair_candidates() );
+		?>
+		<div style="flex:1;min-width:300px;">
+		<h2 style="margin-top:0"><?php esc_html_e( 'Repair Missing Thumbnails', 'dc-webp-converter' ); ?></h2>
+		<p style="color:#555;margin-top:0"><?php esc_html_e( 'Finds WebP attachments whose thumbnail size files are missing on disk and re-generates them from the original PNG/JPG source. Use this after a conversion run that completed before v1.3.0.', 'dc-webp-converter' ); ?></p>
+
+		<?php if ( $missing_count > 0 ) : ?>
+		<p><strong style="color:#cf222e;"><?php
+			/* translators: %d: number of attachments with missing thumbnails */
+			printf( esc_html__( '%d attachment(s) have missing thumbnail files.', 'dc-webp-converter' ), $missing_count );
+		?></strong></p>
+		<?php else : ?>
+		<p style="color:#2ea44f;font-weight:600"><?php esc_html_e( '✓ No missing thumbnails detected.', 'dc-webp-converter' ); ?></p>
+		<?php endif; ?>
+
+		<?php if ( $repair_stats ) : ?>
+		<table class="widefat fixed striped" style="width:auto;margin-bottom:12px;">
+		<tr><th><?php esc_html_e( 'Last run', 'dc-webp-converter' ); ?></th><td><?php echo esc_html( $repair_stats['ts'] ); ?></td></tr>
+		<tr><th><?php esc_html_e( 'Fixed',   'dc-webp-converter' ); ?></th><td style="color:#2ea44f;font-weight:600"><?php echo (int) $repair_stats['fixed']; ?></td></tr>
+		<tr><th><?php esc_html_e( 'Skipped', 'dc-webp-converter' ); ?></th><td><?php echo (int) $repair_stats['skipped']; ?></td></tr>
+		<tr><th><?php esc_html_e( 'Errors',  'dc-webp-converter' ); ?></th><td style="<?php echo $repair_stats['errors'] > 0 ? 'color:#cf222e;font-weight:600' : ''; ?>"><?php echo (int) $repair_stats['errors']; ?></td></tr>
+		</table>
+		<?php endif; ?>
+
+		<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
+		<?php wp_nonce_field( 'dc_p2w_repair' ); ?>
+		<input type="hidden" name="action" value="dc_p2w_repair">
+		<button type="submit" class="button<?php echo $missing_count > 0 ? ' button-primary' : ''; ?>" onclick="return confirm('<?php echo esc_js( __( 'Scan all WebP attachments and convert any missing thumbnail files now?', 'dc-webp-converter' ) ); ?>')">
+			<?php esc_html_e( '🔧 Repair Missing Thumbnails', 'dc-webp-converter' ); ?>
+		</button>
+		</form>
+
+		<?php if ( ! empty( $repair_log ) ) : ?>
+		<details style="margin-top:14px">
+			<summary style="cursor:pointer;font-weight:600"><?php
+				/* translators: %d: number of log entries */
+				printf( esc_html__( 'Last repair log (%d entries)', 'dc-webp-converter' ), count( $repair_log ) );
+			?></summary>
+			<table class="widefat fixed striped" style="margin-top:8px">
+			<thead><tr>
+				<th width="60"><?php esc_html_e( 'ID', 'dc-webp-converter' ); ?></th>
+				<th width="70"><?php esc_html_e( 'Status', 'dc-webp-converter' ); ?></th>
+				<th><?php esc_html_e( 'File / Message', 'dc-webp-converter' ); ?></th>
+			</tr></thead>
+			<tbody>
+			<?php foreach ( array_reverse( $repair_log ) as $entry ) :
+				$c = $entry['status'] === 'ok' ? '#2ea44f' : ( $entry['status'] === 'error' ? '#cf222e' : ( $entry['status'] === 'warn' ? '#f0a500' : '#888' ) );
+			?>
+			<tr>
+				<td><?php echo (int) $entry['id']; ?></td>
+				<td><span style="color:<?php echo esc_attr( $c ); ?>;font-weight:600"><?php echo esc_html( $entry['status'] ); ?></span></td>
+				<td><code><?php echo esc_html( $entry['msg'] ); ?></code></td>
+			</tr>
+			<?php endforeach; ?>
+			</tbody>
+			</table>
+		</details>
+		<?php endif; ?>
+
+		</div><!-- /repair -->
 
 		</div><!-- /flex -->
 
