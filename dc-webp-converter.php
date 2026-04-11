@@ -52,9 +52,11 @@ class DC_WebP_Converter {
 		add_action( self::CRON_HOOK,             [ __CLASS__, 'process_batch' ] );
 		add_action( 'admin_notices',             [ __CLASS__, 'admin_notices' ] );
 		// Footer credit: only register when the checkbox is ticked AND no other DC plugin
-		// has already claimed ownership via the dc_footer_credit_owner() sentinel.
+		// has already claimed ownership via the dc_swp_footer_credit_owner() sentinel
+		// (or the legacy dc_footer_credit_owner() used by older DC plugin versions).
 		$dc_p2w_s = self::get_settings();
 		if ( ! empty( $dc_p2w_s['footer_credit_enabled'] )
+			&& ! function_exists( 'dc_swp_footer_credit_owner' )
 			&& ! function_exists( 'dc_footer_credit_owner' )
 		) {
 			function dc_footer_credit_owner(): void {} // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedFunctionFound -- intentional cross-plugin sentinel
